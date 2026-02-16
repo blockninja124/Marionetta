@@ -4,15 +4,9 @@ plugins {
     id "com.modrinth.minotaur"
 }
 
-apply from: '../gradle-scripts/publish-curseforge.gradle'
-
 architectury {
     platformSetupLoomIde()
     fabric()
-}
-
-loom {
-    accessWidenerPath = project(":common").loom.accessWidenerPath
 }
 
 configurations {
@@ -24,33 +18,62 @@ configurations {
 }
 
 dependencies {
-    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
-    modApi "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
-    modImplementation("net.fabricmc:fabric-language-kotlin:1.10.10+kotlin.1.9.10")
+    modImplementation("net.fabricmc:fabric-loader:${fabric_loader_version}")
+    common(project(path: ":common", configuration: "namedElements")) { transitive = false }
+    shadowCommon(project(path: ":common", configuration: "transformProductionFabric")) { transitive = false }
 
-    modImplementation ("curse.maven:mc-vr-api-591092:5032460")
-    include(modApi "dev.architectury:architectury-fabric:${rootProject.architectury_version}")
+    // dependencies
+    modImplementation("net.fabricmc.fabric-api:fabric-api:${fabric_api_version}")
+    include(annotationProcessor(implementation("io.github.llamalad7:mixinextras-fabric:0.4.1")))
 
-    // Mod menu
-    modImplementation("com.terraformersmc:modmenu:3.2.3")
-    modImplementation("me.shedaniel.cloth:cloth-config:${cloth_config_version}")
+    include(modApi("dev.architectury:architectury-fabric:${rootProject.architectury_api_version}"))
 
-    // Remove the next line if you don't want to depend on the API
-    modApi("org.valkyrienskies:valkyrienskies-118-fabric:${rootProject.vs2_version}")
+    //VS2
+    modApi("org.valkyrienskies:valkyrienskies-120-fabric:${rootProject.vs2_version}") {
+        exclude group: "com.simibubi"
+        // Excluding sodium since it crashes with vs2 for some reason
+        exclude group: 'maven.modrinth', module: 'sodium'
+        exclude group: "io.github.fabricators_of_create"
+        exclude group: "dev.engine-room"
+        exclude group: "dev.engine_room"
+    }
+    implementation("org.valkyrienskies.core:api:${rootProject.vs_core_version}") {
+        exclude group: 'org.joml', module: ''
+    }
+    implementation("org.valkyrienskies.core:util:${rootProject.vs_core_version}") {
+        exclude group: 'org.joml', module: ''
+    }
+    implementation("org.valkyrienskies.core:internal:${rootProject.vs_core_version}") {
+        exclude group: 'org.joml', module: ''
+    }
 
-    common(project(path: ":common", configuration: "namedElements")) { transitive false }
-    shadowCommon(project(path: ":common", configuration: "transformProductionFabric")) { transitive false }
+    modImplementation ("curse.maven:mc-vr-api-591092:6061309")
 
-    modImplementation("curse.maven:cc-restitched-462672:3838648")
+    // Kotlin
+    modImplementation("net.fabricmc:fabric-language-kotlin:${rootProject.kotlin_fabric}")
 
-    modImplementation files("${rootProject.rootDir}/libs/vivecraft-1.18.2-1.1.13-fabric.jar")
+    api "org.jetbrains.kotlin:kotlin-stdlib:2.0.0"
+    api "org.jetbrains.kotlin:kotlin-reflect:2.0.0"
+
+
+    implementation("org.joml:joml-primitives:1.10.0")
+    implementation("org.joml:joml:1.10.4")
 }
 
+
 processResources {
-    inputs.property "version", project.version
+    // set up properties for filling into metadata
+    Map<String, String> properties = Map.of(
+            "vs2_version", vs2_version,
+            "version", version,
+            "fabric_loader_version", fabric_loader_version,
+            "fabric_api_version", fabric_api_version,
+            "minecraft_version", minecraft_version
+    )
+    properties.forEach((k, v) -> inputs.property(k, v))
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version, "vs2_version": project.vs2_version.substring(0, project.vs2_version.indexOf('+'))
+        expand properties
     }
 }
 
@@ -81,5 +104,19 @@ sourcesJar {
 components.java {
     withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
         skip()
+    }
+}
+
+publishing {
+    publications {
+        mavenFabric(MavenPublication) {
+            artifactId = rootProject.archives_base_name + "-" + project.name
+            from components.java
+        }
+    }
+
+    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+    repositories {
+        // Add repositories to publish to here.
     }
 }
