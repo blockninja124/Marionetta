@@ -89,8 +89,8 @@ loom {
     forge {
         mixinConfig "marionetta-common.mixins.json"
         mixinConfig "marionetta.mixins.json"
-        //convertAccessWideners.set(true)
-        //extraAccessWideners.add loom.accessWidenerPath.get().asFile.name
+        convertAccessWideners.set(true)
+        extraAccessWideners.add loom.accessWidenerPath.get().asFile.name
     }
     mixin {
         defaultRefmapName = "marionetta-refmap.json"
